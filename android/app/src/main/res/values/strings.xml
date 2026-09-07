@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">app_keuangan_keluarga</string>
+    <string name="title_activity_main">app_keuangan_keluarga</string>
+    <string name="package_name">com.keluarga.keuangan</string>
+    <string name="custom_url_scheme">com.keluarga.keuangan</string>
+</resources>

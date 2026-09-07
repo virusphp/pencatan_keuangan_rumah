@@ -1,0 +1,84 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  suami
+  istri
+}
+
+enum CategoryType {
+  income
+  expense
+  transfer
+}
+
+enum RoleAccess {
+  all
+  suami
+  istri
+}
+
+enum GoalStatus {
+  active
+  achieved
+  canceled
+}
+
+model User {
+  id                  String       @id @default(uuid())
+  name                String
+  role                Role
+  theme_color         String       @default("#3B82F6")
+  is_transparent_mode Boolean      @default(false)
+  saving_goals        SavingGoal[]
+  transactions        Transaction[]
+  rewards             Reward[]
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String
+  type         CategoryType
+  role_access  RoleAccess
+  transactions Transaction[]
+}
+
+model SavingGoal {
+  id            String        @id @default(uuid())
+  name          String
+  target_amount Decimal
+  is_shared     Boolean
+  status        GoalStatus
+  created_by    String
+  user          User          @relation(fields: [created_by], references: [id])
+  transactions  Transaction[]
+}
+
+model Transaction {
+  id             String      @id @default(uuid())
+  user_id        String
+  user           User        @relation(fields: [user_id], references: [id])
+  amount         Decimal
+  type           CategoryType
+  category_id    Int
+  category       Category    @relation(fields: [category_id], references: [id])
+  saving_goal_id String?
+  saving_goal    SavingGoal? @relation(fields: [saving_goal_id], references: [id])
+  notes          String?
+  created_at     DateTime    @default(now())
+}
+
+model Reward {
+  id      String @id @default(uuid())
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id])
+  month   Int
+  year    Int
+  score   Int
+  badge   String
+}
