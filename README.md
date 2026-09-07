@@ -86,3 +86,76 @@ npx prisma db push
 ```
 
 **Selesai!** Aplikasi Pencatatan Keuangan Keluarga sekarang sudah mengudara dan bisa diakses lewat internet. 🥳
+
+---
+
+## Panduan Deploy ke VPS / aaPanel 🖥️
+
+Karena aplikasi ini sudah dikonfigurasi menggunakan `@sveltejs/adapter-node`, proses *deploy* ke VPS atau control panel seperti **aaPanel** menjadi sangat mudah.
+
+### Langkah 1: Kloning & Build di Server
+Masuk ke terminal VPS Anda, kloning repositori ini, lalu jalankan perintah *build*:
+```bash
+git clone <url-repositori-anda>
+cd pencatatan_keuangan
+npm install
+npx prisma generate
+npm run build
+```
+Setelah berhasil, SvelteKit akan menghasilkan folder `build/`.
+
+### Langkah 2: Setup Database
+Pastikan Anda sudah membuat database PostgreSQL kosong di server VPS atau aaPanel Anda.
+Ubah file `.env` di server Anda dengan URL koneksi database yang baru.
+```bash
+# Lakukan push schema ke database production
+npx prisma db push
+```
+
+### Langkah 3: Menjalankan Server Node
+
+#### Jika menggunakan aaPanel:
+1. Buka menu **Website > Node Project**.
+2. Klik **Add Node Project**.
+3. **Project directory**: Pilih folder aplikasi Anda (contoh: `/www/wwwroot/pencatatan_keuangan`).
+4. **Run Command / Startup file**: Ketik `build/index.js`.
+5. **Port**: Isi dengan `3000` (atau port pilihan Anda).
+6. **Environment Variables**: Tambahkan `DATABASE_URL` (milik postgres lokal server) dan `ORIGIN` (contoh: `ORIGIN=https://domain-anda.com`).
+7. Klik Submit dan biarkan aaPanel menjalankan aplikasi Anda (menggunakan PM2 di belakang layar).
+
+#### Jika menggunakan PM2 (VPS Standar):
+Instal PM2 dan jalankan secara daemon:
+```bash
+npm install -g pm2
+PORT=3000 ORIGIN=https://domain-anda.com DATABASE_URL="postgresql://..." pm2 start build/index.js --name "keuangan-app"
+pm2 save
+pm2 startup
+```
+
+### Langkah 4: Setup Reverse Proxy (Domain)
+Aplikasi berjalan di port `3000`. Agar bisa diakses dari domain tanpa port, setup Nginx.
+
+**Di aaPanel:**
+1. Pada list Website Node Project, klik **Mapping** lalu masukkan nama domain Anda (misal: `uang.keluarga.com`). aaPanel otomatis membuatkan reverse proxy Nginx.
+2. Anda bisa langsung mengaktifkan SSL (Let's Encrypt) dari pengaturan website yang baru dibuat.
+
+**Di VPS (Nginx Manual):**
+Edit konfigurasi server block Nginx Anda:
+```nginx
+server {
+    listen 80;
+    server_name uang.keluarga.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+Restart Nginx (`sudo systemctl restart nginx`).
+
+**Selesai!** Aplikasi Pencatatan Keuangan Anda kini berjalan mandiri di VPS.
