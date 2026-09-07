@@ -5,6 +5,8 @@
 
     let isLoading = $state(false);
     let errorMessage = $state('');
+    let username = $state('');
+    let password = $state('');
 
     onMount(() => {
         // Auto redirect if already logged in
@@ -13,7 +15,8 @@
         }
     });
 
-    async function handleLogin(role: 'suami' | 'istri') {
+    async function handleLogin(e: Event) {
+        e.preventDefault();
         isLoading = true;
         errorMessage = '';
         
@@ -21,12 +24,21 @@
             // Coba seed database dulu, abaikan jika sudah ada
             await fetch('/api/seed', { method: 'POST' });
 
-            // Simulasi login sukses
-            auth.login({
-                id: role === 'suami' ? 'suami-id-1234' : 'istri-id-5678',
-                name: role === 'suami' ? 'Suami' : 'Istri',
-                role: role
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
             });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                errorMessage = data.message || 'Login gagal';
+                return;
+            }
+
+            // Simulasi login sukses
+            auth.login(data.user);
             
             goto('/dashboard');
         } catch (error) {
@@ -50,58 +62,51 @@
         <p class="text-gray-500 dark:text-gray-400">Transparan, Harmonis, Sejahtera</p>
     </div>
 
-    <!-- Login Cards -->
+    <!-- Login Form -->
     <div class="w-full max-w-sm space-y-4">
         {#if errorMessage}
-            <div class="p-4 bg-red-100 text-red-700 rounded-xl text-sm">{errorMessage}</div>
+            <div class="p-4 bg-red-100 text-red-700 rounded-xl text-sm text-left">{errorMessage}</div>
         {/if}
 
-        <button 
-            onclick={() => handleLogin('suami')}
-            disabled={isLoading}
-            class="w-full relative overflow-hidden group bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 p-5 rounded-2xl flex items-center justify-between hover:border-primary hover:shadow-lg transition-all active:scale-[0.98]">
-            <div class="flex items-center gap-4 relative z-10">
-                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                </div>
-                <div class="text-left">
-                    <h2 class="font-bold text-lg">Suami</h2>
-                    <p class="text-xs text-gray-500">Pencari nafkah utama</p>
-                </div>
+        <form onsubmit={handleLogin} class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm text-left flex flex-col gap-4">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    bind:value={username} 
+                    required 
+                    class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors dark:text-white"
+                    placeholder="Masukkan username"
+                />
             </div>
-            <div class="text-gray-300 dark:text-gray-600 group-hover:text-primary transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    bind:value={password} 
+                    required 
+                    class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-colors dark:text-white"
+                    placeholder="Masukkan password"
+                />
             </div>
-        </button>
 
-        <button 
-            onclick={() => handleLogin('istri')}
-            disabled={isLoading}
-            class="w-full relative overflow-hidden group bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 p-5 rounded-2xl flex items-center justify-between hover:border-pink-500 hover:shadow-lg transition-all active:scale-[0.98]">
-            <div class="flex items-center gap-4 relative z-10">
-                <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400 rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <button 
+                type="submit"
+                disabled={isLoading}
+                class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.98] mt-2 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                {#if isLoading}
+                    <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                </div>
-                <div class="text-left">
-                    <h2 class="font-bold text-lg">Istri</h2>
-                    <p class="text-xs text-gray-500">Manajer keuangan rumah</p>
-                </div>
-            </div>
-            <div class="text-gray-300 dark:text-gray-600 group-hover:text-pink-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </div>
-        </button>
+                    Memproses...
+                {:else}
+                    Masuk
+                {/if}
+            </button>
+        </form>
     </div>
-
-    {#if isLoading}
-        <div class="mt-8 text-sm text-gray-400 animate-pulse">Menghubungkan ke database...</div>
-    {/if}
 </div>

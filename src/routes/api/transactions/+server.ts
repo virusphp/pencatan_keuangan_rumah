@@ -4,46 +4,72 @@ import { prisma } from '$lib/server/prisma';
 export async function GET({ url }) {
     const userId = url.searchParams.get('userId');
     const role = url.searchParams.get('role');
+    const month = url.searchParams.get('month');
+    const year = url.searchParams.get('year');
 
     if (!userId || !role) {
         return json({ error: 'Missing userId or role' }, { status: 400 });
     }
 
     try {
-        // Cek is_transparent_mode dari akun suami
         const suami = await prisma.user.findFirst({ where: { role: 'suami' } });
         const isTransparent = suami?.is_transparent_mode ?? false;
 
-        let transactions;
-
-        if (role === 'suami' || isTransparent) {
-            // Suami atau Mode Transparan: Lihat semua
-            transactions = await prisma.transaction.findMany({
-                orderBy: { created_at: 'desc' },
-                include: { category: true, user: true }
-            });
-        } else {
-            // Istri tanpa Mode Transparan: Lihat miliknya sendiri
-            transactions = await prisma.transaction.findMany({
-                where: { user_id: userId },
-                orderBy: { created_at: 'desc' },
-                include: { category: true, user: true }
-            });
+        let dateFilter = {};
+        if (month && year) {
+            const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const endDate = new Date(parseInt(year), parseInt(month), 1);
+            dateFilter = {
+                created_at: {
+                    gte: startDate,
+                    lt: endDate
+                }
+            };
         }
 
-        // Hitung total saldo
-        // Pemasukan = type income
-        // Pengeluaran = type expense ATAU (type transfer && sumber dana (user_id pembuat))
-        // Karena transfer adalah double-entry, pemasukan di istri akan tercatat sebagai type transfer tapi sebagai income buat istri?
-        // Wait, the rule says:
-        // 1. Pengeluaran di ID Suami sebesar X (type transfer)
-        // 2. Pemasukan di ID Istri sebesar X (type transfer)
-        // Kita butuh cara membedakan mana transfer keluar dan transfer masuk.
-        // Jika amount selalu absolut, kita bisa buat convention:
-        // Income = +amount, Expense = -amount, 
-        // Atau: cek role pengirim vs penerima.
+        let my_transactions = await prisma.transaction.findMany({
+            where: { user_id: userId, ...dateFilter },
+            orderBy: { created_at: 'desc' },
+            include: { category: true, user: true }
+        });
+
+        let spouse_transactions = [];
+        let spouseBalance = 0;
+        let spouseId = null;
+
+        if (role === 'suami' || isTransparent) {
+            const spouseRole = role === 'suami' ? 'istri' : 'suami';
+            const spouse = await prisma.user.findFirst({ where: { role: spouseRole } });
+            spouseId = spouse?.id;
+        }
+
+        if (spouseId) {
+            spouse_transactions = await prisma.transaction.findMany({
+                where: { user_id: spouseId, ...dateFilter },
+                orderBy: { created_at: 'desc' },
+                include: { category: true, user: true }
+            });
+            
+            const spouseSum = await prisma.transaction.aggregate({
+                _sum: { amount: true },
+                where: { user_id: spouseId }
+            });
+            spouseBalance = Number(spouseSum._sum.amount || 0);
+        }
+
+        const mySum = await prisma.transaction.aggregate({
+            _sum: { amount: true },
+            where: { user_id: userId }
+        });
+        const totalBalance = Number(mySum._sum.amount || 0);
         
-        return json({ transactions, isTransparent });
+        return json({ 
+            my_transactions,
+            spouse_transactions,
+            totalBalance,
+            spouseBalance,
+            isTransparent 
+        });
     } catch (error: any) {
         return json({ error: error.message }, { status: 500 });
     }
@@ -52,11 +78,13 @@ export async function GET({ url }) {
 export async function POST({ request }) {
     try {
         const body = await request.json();
-        const { amount, type, category_id, notes, user_id, role, to_user_id } = body;
+        const { amount, type, category_id, notes, user_id, role, to_user_id, date } = body;
 
         if (!amount || !type || !category_id || !user_id) {
             return json({ error: 'Missing required fields' }, { status: 400 });
         }
+
+        const created_at = date ? new Date(date) : undefined;
 
         if (type === 'transfer') {
             // Logika Double Entry
@@ -75,6 +103,7 @@ export async function POST({ request }) {
                         type: 'transfer',
                         category_id: parseInt(category_id),
                         notes: notes || 'Transfer keluar',
+                        created_at
                     }
                 }),
                 prisma.transaction.create({
@@ -84,6 +113,7 @@ export async function POST({ request }) {
                         type: 'transfer',
                         category_id: parseInt(category_id),
                         notes: notes || 'Transfer masuk',
+                        created_at
                     }
                 })
             ]);
@@ -99,7 +129,8 @@ export async function POST({ request }) {
                     amount: actualAmount,
                     type,
                     category_id: parseInt(category_id),
-                    notes
+                    notes,
+                    created_at
                 }
             });
             return json({ success: true, transaction: tx });

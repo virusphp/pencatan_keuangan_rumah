@@ -4,6 +4,7 @@ type UserSession = {
     id: string;
     role: 'suami' | 'istri';
     name: string;
+    theme_color?: string;
 };
 
 export function createAuthStore() {
@@ -35,10 +36,20 @@ export function createAuthStore() {
         }
     }
 
+    function update(data: Partial<UserSession>) {
+        if (session) {
+            session = { ...session, ...data };
+            if (browser) {
+                localStorage.setItem('auth_session', JSON.stringify(session));
+            }
+        }
+    }
+
     return {
         get session() { return session; },
         login,
         logout,
+        update,
         get isAuthenticated() { return session !== null; }
     };
 }

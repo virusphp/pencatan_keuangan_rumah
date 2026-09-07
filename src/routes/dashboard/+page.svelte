@@ -2,9 +2,18 @@
     import { onMount } from 'svelte';
     import { auth } from '$lib/stores/auth.svelte';
 
-    let transactions = $state<any[]>([]);
+    let my_transactions = $state<any[]>([]);
+    let spouse_transactions = $state<any[]>([]);
+    
+    let totalBalance = $state(0);
+    let spouseBalance = $state(0);
+    
     let isTransparent = $state(false);
     let isLoading = $state(true);
+
+    const now = new Date();
+    let selectedMonth = $state(now.getMonth() + 1);
+    let selectedYear = $state(now.getFullYear());
 
     onMount(async () => {
         await fetchTransactions();
@@ -15,11 +24,14 @@
         
         try {
             isLoading = true;
-            const res = await fetch(`/api/transactions?userId=${auth.session.id}&role=${auth.session.role}`);
+            const res = await fetch(`/api/transactions?userId=${auth.session.id}&role=${auth.session.role}&month=${selectedMonth}&year=${selectedYear}`);
             const data = await res.json();
             
-            if (data.transactions) {
-                transactions = data.transactions;
+            if (data) {
+                my_transactions = data.my_transactions || [];
+                spouse_transactions = data.spouse_transactions || [];
+                totalBalance = data.totalBalance || 0;
+                spouseBalance = data.spouseBalance || 0;
                 isTransparent = data.isTransparent;
             }
         } catch (error) {
@@ -28,13 +40,6 @@
             isLoading = false;
         }
     }
-
-    let totalBalance = $derived(
-        transactions.reduce((sum, tx) => {
-            // Karena kita simpan expense sebagai negatif dan income positif, tinggal di-sum
-            return sum + parseFloat(tx.amount);
-        }, 0)
-    );
 
     function formatRupiah(amount: number) {
         return new Intl.NumberFormat('id-ID', {
@@ -46,15 +51,44 @@
 </script>
 
 <div class="space-y-6">
+    <!-- Header with Month Picker -->
+    <div class="flex justify-between items-center bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+            <p class="text-xs text-gray-500">Halo, {auth.session?.name}!</p>
+        </div>
+        <div class="flex gap-2">
+            <select bind:value={selectedMonth} onchange={fetchTransactions} class="bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-3 py-2 text-sm font-medium outline-none cursor-pointer">
+                <option value={1}>Januari</option>
+                <option value={2}>Februari</option>
+                <option value={3}>Maret</option>
+                <option value={4}>April</option>
+                <option value={5}>Mei</option>
+                <option value={6}>Juni</option>
+                <option value={7}>Juli</option>
+                <option value={8}>Agustus</option>
+                <option value={9}>September</option>
+                <option value={10}>Oktober</option>
+                <option value={11}>November</option>
+                <option value={12}>Desember</option>
+            </select>
+            <select bind:value={selectedYear} onchange={fetchTransactions} class="bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-3 py-2 text-sm font-medium outline-none cursor-pointer">
+                <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
+                <option value={now.getFullYear()}>{now.getFullYear()}</option>
+                <option value={now.getFullYear() + 1}>{now.getFullYear() + 1}</option>
+            </select>
+        </div>
+    </div>
+
     <!-- Balance Card -->
-    <div class="bg-gradient-to-br from-primary to-blue-400 dark:from-primary-dark dark:to-blue-800 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+    <div class="bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
         <!-- Decoration -->
         <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
         <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
         
         <div class="relative z-10">
             <div class="flex justify-between items-start mb-2">
-                <p class="text-blue-100 dark:text-blue-200 text-sm font-medium">Total Saldo Saat Ini</p>
+                <p class="text-white/80 text-sm font-medium">Total Saldo (Sepanjang Waktu)</p>
                 {#if auth.session?.role === 'istri' && !isTransparent}
                     <span class="bg-white/20 px-2 py-1 rounded text-[10px] backdrop-blur-sm">Mode Privat</span>
                 {/if}
@@ -87,8 +121,8 @@
     <!-- Recent Transactions -->
     <div>
         <div class="flex justify-between items-end mb-4">
-            <h3 class="font-bold text-gray-800 dark:text-gray-200">Riwayat Terakhir</h3>
-            <button class="text-sm text-primary dark:text-blue-400 font-medium hover:underline">Lihat Semua</button>
+            <h3 class="font-bold text-gray-800 dark:text-gray-200">Riwayat Bulan Ini</h3>
+            <a href="/dashboard/analisis" class="text-sm text-primary dark:text-primary-dark font-medium hover:underline">Analisis</a>
         </div>
 
         {#if isLoading}
@@ -97,14 +131,14 @@
                     <div class="h-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-2xl"></div>
                 {/each}
             </div>
-        {:else if transactions.length === 0}
+        {:else if my_transactions.length === 0}
             <div class="text-center py-10 bg-white dark:bg-surface-dark rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
                 <p class="text-gray-500 dark:text-gray-400">Belum ada transaksi bulan ini.</p>
                 <a href="/dashboard/catat" class="text-primary mt-2 inline-block font-medium">Catat sekarang!</a>
             </div>
         {:else}
             <div class="space-y-3">
-                {#each transactions as tx}
+                {#each my_transactions as tx}
                     <div class="bg-white dark:bg-surface-dark p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100 dark:border-gray-800">
                         <div class="flex items-center gap-4">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center 
@@ -125,7 +159,7 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
-                                <p class="text-[11px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })} • Oleh: {tx.user?.name}</p>
+                                <p class="text-[11px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
                             </div>
                         </div>
                         <div class="font-bold text-sm {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
@@ -136,4 +170,57 @@
             </div>
         {/if}
     </div>
+
+    <!-- Spouse Transparent Mode Section -->
+    {#if auth.session?.role === 'suami' || (auth.session?.role === 'istri' && isTransparent)}
+        <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
+            <h3 class="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Mengintip Dompet Pasangan
+            </h3>
+            
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-3xl p-5 mb-4 shadow-inner border border-gray-200 dark:border-gray-700">
+                <p class="text-gray-500 dark:text-gray-400 text-xs font-medium mb-1">Saldo Pasangan (Sepanjang Waktu)</p>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatRupiah(spouseBalance)}</h2>
+            </div>
+            
+            <div class="space-y-3 opacity-80">
+                {#if spouse_transactions.length === 0}
+                    <p class="text-center text-xs text-gray-500 py-4">Tidak ada transaksi bulan ini.</p>
+                {/if}
+                {#each spouse_transactions as tx}
+                    <div class="bg-white/50 dark:bg-surface-dark/50 p-3 rounded-xl flex justify-between items-center border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center 
+                                {tx.amount > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}">
+                                {#if tx.type === 'transfer'}
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                {:else if tx.amount > 0}
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                {:else}
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                                    </svg>
+                                {/if}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
+                                <p class="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
+                            </div>
+                        </div>
+                        <div class="font-bold text-xs {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
+                            {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        </div>
+    {/if}
 </div>

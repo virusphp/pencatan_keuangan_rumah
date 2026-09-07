@@ -1,5 +1,6 @@
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -32,6 +33,8 @@ enum GoalStatus {
 model User {
   id                  String       @id @default(uuid())
   name                String
+  username            String       @unique
+  password            String
   role                Role
   theme_color         String       @default("#3B82F6")
   is_transparent_mode Boolean      @default(false)

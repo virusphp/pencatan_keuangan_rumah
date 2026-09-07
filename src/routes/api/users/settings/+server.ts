@@ -4,15 +4,19 @@ import { prisma } from '$lib/server/prisma';
 export async function POST({ request }) {
     try {
         const body = await request.json();
-        const { userId, is_transparent_mode } = body;
+        const { userId, is_transparent_mode, theme_color } = body;
 
         if (!userId) {
             return json({ error: 'Missing userId' }, { status: 400 });
         }
 
+        const dataToUpdate: any = {};
+        if (is_transparent_mode !== undefined) dataToUpdate.is_transparent_mode = is_transparent_mode;
+        if (theme_color !== undefined) dataToUpdate.theme_color = theme_color;
+
         const user = await prisma.user.update({
             where: { id: userId },
-            data: { is_transparent_mode }
+            data: dataToUpdate
         });
 
         return json({ success: true, user });

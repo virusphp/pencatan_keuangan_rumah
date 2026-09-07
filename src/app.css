@@ -1,17 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #3B82F6; /* Default Blue */
-  --color-primary-dark: #2563EB;
-  --color-background-dark: #111827;
-  --color-surface-dark: #1F2937;
+  /* Dynamic primary colors based on CSS variables with Blue fallback */
+  --color-primary: var(--theme-color, #3B82F6);
+  --color-primary-dark: color-mix(in srgb, var(--theme-color, #3B82F6) 80%, black);
+  
+  /* Richer, less monotonous dark mode base (Slate/Blue tinted) */
+  --color-background-dark: #0f172a;
+  --color-surface-dark: #1e293b;
   
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
-/* Base styles for dark theme */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-background-dark dark:text-gray-100;
+    @apply bg-gray-50 text-gray-900 dark:bg-background-dark dark:text-gray-100 transition-colors duration-300;
+  }
+
+  .dark body {
+    /* Subtle deep space gradient for dark mode */
+    background-image: radial-gradient(circle at top right, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 1) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 }
