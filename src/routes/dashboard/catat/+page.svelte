@@ -19,6 +19,17 @@
     let notes = $state('');
     let isSubmitting = $state(false);
 
+    let accounts = $state<any[]>([]);
+    let account_id = $state('');
+    let to_account_id = $state('');
+
+    let accessibleAccounts = $derived(
+        accounts.filter(a => a.role_access === 'all' || a.role_access === auth.session?.role)
+    );
+    let destinationAccounts = $derived(
+        accounts.filter(a => a.id !== account_id)
+    );
+
     onMount(async () => {
         // Set tab from URL param if available
         const typeParam = $page.url.searchParams.get('type');
@@ -39,6 +50,17 @@
             const dataTx = await resTx.json();
             if (dataTx) {
                 totalBalance = dataTx.totalBalance || 0;
+            }
+
+            // Fetch accounts
+            const resAcc = await fetch(`/api/accounts?role=${auth.session.role}`);
+            const dataAcc = await resAcc.json();
+            if (dataAcc.accounts) {
+                accounts = dataAcc.accounts;
+                const myAccs = accounts.filter(a => a.role_access === auth.session?.role || a.role_access === 'all');
+                if (myAccs.length > 0) {
+                    account_id = myAccs[0].id;
+                }
             }
         }
     });
@@ -80,6 +102,8 @@
                     amount,
                     type: activeTab,
                     category_id,
+                    account_id,
+                    to_account_id: activeTab === 'transfer' ? to_account_id : undefined,
                     notes,
                     date
                 })
@@ -172,6 +196,30 @@
         </div>
 
         <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                {activeTab === 'income' ? 'Masuk ke Dompet' : 'Sumber Dompet'}
+            </label>
+            <select bind:value={account_id} required class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none text-gray-900 dark:text-white appearance-none">
+                {#if !account_id}<option value="" disabled>Pilih Dompet...</option>{/if}
+                {#each accessibleAccounts as acc}
+                    <option value={acc.id}>{acc.name} ({acc.type})</option>
+                {/each}
+            </select>
+        </div>
+
+        {#if activeTab === 'transfer'}
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tujuan Dompet</label>
+            <select bind:value={to_account_id} required class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none text-gray-900 dark:text-white appearance-none">
+                <option value="" disabled>Pilih Tujuan Transfer...</option>
+                {#each destinationAccounts as acc}
+                    <option value={acc.id}>{acc.name} ({acc.type})</option>
+                {/each}
+            </select>
+        </div>
+        {/if}
+
+        <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kategori</label>
             <select bind:value={category_id} required class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none text-gray-900 dark:text-white appearance-none">
                 <option value="" disabled>Pilih Kategori...</option>
@@ -193,7 +241,7 @@
 
         <button 
             type="submit" 
-            disabled={isSubmitting || !amount || !category_id}
+            disabled={isSubmitting || !amount || !category_id || !account_id || (activeTab === 'transfer' && !to_account_id)}
             class="w-full py-4 mt-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100">
             {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
         </button>

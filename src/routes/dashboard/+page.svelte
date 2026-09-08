@@ -7,6 +7,7 @@
     
     let totalBalance = $state(0);
     let spouseBalance = $state(0);
+    let accountBalances = $state<any[]>([]);
     
     let isTransparent = $state(false);
     let isLoading = $state(true);
@@ -32,6 +33,7 @@
                 spouse_transactions = data.spouse_transactions || [];
                 totalBalance = data.totalBalance || 0;
                 spouseBalance = data.spouseBalance || 0;
+                accountBalances = data.accountBalances || [];
                 isTransparent = data.isTransparent;
             }
         } catch (error) {
@@ -47,6 +49,25 @@
             currency: 'IDR',
             minimumFractionDigits: 0
         }).format(amount);
+    }
+
+    async function deleteTransaction(id: string) {
+        if (!confirm('Hapus transaksi ini? Jika ini transfer, pasangan dari transfer ini juga akan ikut terhapus.')) return;
+        try {
+            const res = await fetch('/api/transactions', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            if (res.ok) {
+                await fetchTransactions();
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Gagal menghapus transaksi');
+            }
+        } catch (e) {
+            console.error(e);
+        }
     }
 </script>
 
@@ -97,7 +118,22 @@
             {#if isLoading}
                 <div class="h-10 bg-white/20 animate-pulse rounded w-1/2 my-2"></div>
             {:else}
-                <h2 class="text-4xl font-bold tracking-tight mb-6">{formatRupiah(totalBalance)}</h2>
+                <h2 class="text-4xl font-bold tracking-tight mb-4">{formatRupiah(totalBalance)}</h2>
+                
+                <!-- Accounts List -->
+                <div class="mb-6 space-y-2">
+                    {#each accountBalances as acc}
+                        {#if acc.role_access === auth.session?.role || acc.role_access === 'all'}
+                        <div class="flex justify-between items-center bg-white/10 p-2 px-3 rounded-xl backdrop-blur-sm border border-white/5">
+                            <div>
+                                <p class="text-[10px] text-white/70 uppercase tracking-wider">{acc.type}</p>
+                                <p class="font-bold text-sm">{acc.name}</p>
+                            </div>
+                            <p class="font-bold text-sm">{formatRupiah(acc.balance)}</p>
+                        </div>
+                        {/if}
+                    {/each}
+                </div>
             {/if}
             
             <!-- Quick Actions -->
@@ -159,11 +195,16 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
-                                <p class="text-[11px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                <p class="text-[11px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} • {tx.account?.name}</p>
                             </div>
                         </div>
-                        <div class="font-bold text-sm {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
-                            {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="font-bold text-sm {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
+                                {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                            </span>
+                            <button onclick={() => deleteTransaction(tx.id)} class="text-[10px] text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md transition">
+                                Hapus
+                            </button>
                         </div>
                     </div>
                 {/each}
@@ -212,11 +253,16 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-xs text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
-                                <p class="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
+                                <p class="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} • {tx.account?.name}</p>
                             </div>
                         </div>
-                        <div class="font-bold text-xs {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
-                            {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="font-bold text-xs {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
+                                {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                            </span>
+                            <button onclick={() => deleteTransaction(tx.id)} class="text-[9px] text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md transition">
+                                Hapus
+                            </button>
                         </div>
                     </div>
                 {/each}

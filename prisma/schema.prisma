@@ -18,6 +18,13 @@ enum CategoryType {
   transfer
 }
 
+enum AccountType {
+  bank
+  cash
+  ewallet
+  investment
+}
+
 enum RoleAccess {
   all
   suami
@@ -40,6 +47,7 @@ model User {
   is_transparent_mode Boolean      @default(false)
   saving_goals        SavingGoal[]
   transactions        Transaction[]
+  accounts            Account[]
   rewards             Reward[]
 }
 
@@ -62,10 +70,23 @@ model SavingGoal {
   transactions  Transaction[]
 }
 
+model Account {
+  id           String        @id @default(uuid())
+  name         String
+  type         AccountType
+  role_access  RoleAccess
+  created_by   String
+  user         User          @relation(fields: [created_by], references: [id])
+  transactions Transaction[]
+  created_at   DateTime      @default(now())
+}
+
 model Transaction {
   id             String      @id @default(uuid())
   user_id        String
   user           User        @relation(fields: [user_id], references: [id])
+  account_id     String
+  account        Account     @relation(fields: [account_id], references: [id], onDelete: Cascade)
   amount         Decimal
   type           CategoryType
   category_id    Int
@@ -73,6 +94,7 @@ model Transaction {
   saving_goal_id String?
   saving_goal    SavingGoal? @relation(fields: [saving_goal_id], references: [id])
   notes          String?
+  transfer_id    String?
   created_at     DateTime    @default(now())
 }
 
