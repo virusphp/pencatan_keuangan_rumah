@@ -1,9 +1,9 @@
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
 # Install openssl required by Prisma
-RUN apk add --no-cache openssl
+RUN apt-get update -y && apt-get install -y openssl
 
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -19,12 +19,12 @@ RUN npx prisma generate
 RUN npm run build
 
 # ---
-FROM node:22-alpine
+FROM node:22-slim
 
 WORKDIR /app
 
 # Install openssl required by Prisma in production
-RUN apk add --no-cache openssl
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy necessary files from builder
 COPY --from=builder /app/package*.json ./
