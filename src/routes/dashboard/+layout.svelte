@@ -15,19 +15,12 @@
 
 <div class="min-h-screen bg-gray-50 dark:bg-background-dark pb-24">
     <!-- Header -->
-    <header class="bg-primary dark:bg-surface-dark text-white p-4 pt-8 rounded-b-3xl shadow-md sticky top-0 z-10">
+    <header class="bg-primary dark:bg-surface-dark text-white p-4 pt-8 rounded-b-3xl shadow-md sticky top-0 z-40">
         <div class="flex justify-between items-center">
             <div>
                 <p class="text-xs text-blue-100 dark:text-gray-400">Halo, {auth.session?.name}</p>
                 <h1 class="text-xl font-bold">Dompet Keluarga</h1>
             </div>
-            <button 
-                onclick={() => { auth.logout(); goto('/'); }}
-                class="bg-white/20 p-2 rounded-full hover:bg-white/30 transition">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-            </button>
         </div>
     </header>
 
