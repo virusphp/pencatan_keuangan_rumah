@@ -39,6 +39,14 @@
             <span class="text-[10px]">Beranda</span>
         </a>
 
+        <a href="/dashboard/dompet" 
+           class="flex flex-col items-center p-2 rounded-xl w-16 transition-colors {$page.url.pathname === '/dashboard/dompet' ? 'text-primary dark:text-blue-400 font-bold' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span class="text-[10px]">Dompet</span>
+        </a>
+
         <!-- FAB / Catat Button -->
         <a href="/dashboard/catat" 
            class="relative -top-5 bg-primary dark:bg-primary-dark text-white w-14 h-14 rounded-full flex items-center justify-center shadow-[0_8px_16px_rgba(59,130,246,0.4)] hover:scale-105 transition-transform border-4 border-gray-50 dark:border-background-dark">
