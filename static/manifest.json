@@ -1,0 +1,17 @@
+{
+  "name": "Pencatatan Keuangan Keluarga",
+  "short_name": "KeuanganKu",
+  "description": "Aplikasi manajemen keuangan keluarga yang transparan dan harmonis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3B82F6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
