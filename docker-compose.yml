@@ -23,7 +23,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:sintenbademundut@db:5432/keuangan_rumah?schema=public
       - NODE_ENV=production
-      # - ORIGIN=https://domain-anda.com # Uncomment dan ganti dengan domain Anda jika diperlukan untuk SvelteKit Auth/CORS
+      - ORIGIN=https://keuangan.sugandi.my.id # Uncomment dan ganti dengan domain Anda jika diperlukan untuk SvelteKit Auth/CORS
     depends_on:
       - db
     # Command ini dijalankan saat container start: jalankan migrasi database lalu jalankan aplikasi
