@@ -159,3 +159,60 @@ server {
 Restart Nginx (`sudo systemctl restart nginx`).
 
 **Selesai!** Aplikasi Pencatatan Keuangan Anda kini berjalan mandiri di VPS.
+
+---
+
+## Panduan Deploy Menggunakan Docker Compose 🐳
+
+Jika Anda memiliki VPS atau control panel seperti aaPanel yang mendukung Docker, cara paling direkomendasikan dan bersih adalah menggunakan Docker Compose. Aplikasi dan Database PostgreSQL akan berjalan terisolasi di dalam container.
+
+Proyek ini sudah dilengkapi dengan `Dockerfile` dan `docker-compose.yml`.
+
+### Langkah 1: Persiapan File
+1. *Upload* seluruh *source code* (atau jalankan `git clone`) ke server/VPS Anda. (Pastikan file `Dockerfile` dan `docker-compose.yml` ada di dalam folder tersebut).
+2. Jika perlu, buka file `docker-compose.yml` dan sesuaikan *password* database atau variabel lingkungan lainnya (misalnya jangan lupa menambahkan/uncomment `ORIGIN=https://domain-anda.com` untuk mengatasi masalah CORS form actions di SvelteKit).
+
+### Langkah 2: Jalankan Docker Compose
+Buka terminal/SSH VPS Anda, masuk ke dalam folder proyek, lalu jalankan:
+
+```bash
+docker-compose up -d --build
+```
+
+Perintah ini akan secara otomatis:
+- Men-download *image* PostgreSQL.
+- Melakukan *build* SvelteKit dan menginstal *dependencies* di dalam container Node.js.
+- Menjalankan migrasi database Prisma secara otomatis.
+- Menjalankan server aplikasi web di port `3000`.
+
+*(Catatan: Jika menggunakan aaPanel, Anda juga bisa menambahkannya langsung via UI aaPanel melalui menu **Docker > Compose > Add Project** dengan memilih folder direktori proyek).*
+
+### Langkah 3: Setup Nginx Reverse Proxy
+Karena aplikasi berjalan di port `3000` via Docker, Anda harus menghubungkannya ke domain utama menggunakan Nginx Reverse Proxy.
+
+**Di aaPanel:**
+1. Masuk menu **Website > Add Site**, tambahkan domain Anda (Pilih *PHP Version: Pure/Static* dan *Database: Do not create*).
+2. Buka pengaturan *Website* yang baru dibuat, masuk ke tab **Reverse proxy**.
+3. Klik **Add reverse proxy**, isi nama (bebas), lalu isi **Target URL** dengan `http://127.0.0.1:3000`. Kosongkan bagian *Sent Domain*.
+4. Aktifkan SSL (HTTPS) melalui tab **SSL** > Let's Encrypt.
+
+**Di VPS (Manual):**
+Buat konfigurasi *server block* Nginx:
+```nginx
+server {
+    listen 80;
+    server_name keuangan.domain-anda.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+Lalu *restart* Nginx Anda.
+
+Aplikasi siap digunakan dengan arsitektur container Docker yang handal! 🎉
