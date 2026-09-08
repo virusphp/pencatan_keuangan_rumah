@@ -6,11 +6,11 @@ export async function GET({ url }) {
 
     try {
         let whereClause = {};
-        if (role) {
+        if (role === 'istri') {
             whereClause = {
                 OR: [
                     { role_access: 'all' },
-                    { role_access: role }
+                    { role_access: 'istri' }
                 ]
             };
         }

@@ -32,7 +32,7 @@
     }
 
     let totalIncome = $derived(
-        transactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + parseFloat(tx.amount), 0)
+        transactions.filter(tx => tx.amount > 0 && tx.type !== 'transfer').reduce((sum, tx) => sum + parseFloat(tx.amount), 0)
     );
     let totalExpense = $derived(
         Math.abs(transactions.filter(tx => tx.amount < 0).reduce((sum, tx) => sum + parseFloat(tx.amount), 0))

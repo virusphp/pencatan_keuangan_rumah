@@ -67,10 +67,12 @@ export async function GET({ url }) {
             const sum = sums.find(s => s.account_id === acc.id)?._sum.amount || 0;
             const balance = Number(sum);
             
-            if (acc.role_access === role || acc.role_access === 'all') {
-                totalBalance += balance;
-            } else {
-                spouseBalance += balance;
+            if (acc.type !== 'investment') {
+                if (acc.role_access === role || acc.role_access === 'all') {
+                    totalBalance += balance;
+                } else {
+                    spouseBalance += balance;
+                }
             }
             
             return { ...acc, balance };
