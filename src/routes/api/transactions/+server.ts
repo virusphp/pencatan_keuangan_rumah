@@ -43,12 +43,15 @@ export async function GET({ url }) {
         const accounts = await prisma.account.findMany({
             where: accountFilter
         });
-        const accountIds = accounts.map(a => a.id);
+        const accountIds = accounts.map((a: any) => a.id);
 
         // Fetch transactions for these accounts
         let my_transactions = await prisma.transaction.findMany({
             where: { account_id: { in: accountIds }, ...dateFilter },
-            orderBy: { created_at: 'desc' },
+            orderBy: [
+                { created_at: 'desc' },
+                { id: 'desc' }
+            ],
             include: { category: true, account: true, user: true }
         });
 
@@ -63,8 +66,8 @@ export async function GET({ url }) {
         let spouseBalance = 0; // For legacy UI compatibility, we might still want to separate spouse's private accounts
         
         // Let's map account balances
-        const accountBalances = accounts.map(acc => {
-            const sum = sums.find(s => s.account_id === acc.id)?._sum.amount || 0;
+        const accountBalances = accounts.map((acc: any) => {
+            const sum = sums.find((s: any) => s.account_id === acc.id)?._sum.amount || 0;
             const balance = Number(sum);
             
             if (acc.type !== 'investment') {
@@ -79,8 +82,8 @@ export async function GET({ url }) {
         });
 
         // Split transactions for legacy UI compatibility
-        const myTx = my_transactions.filter(tx => tx.account?.role_access === role || tx.account?.role_access === 'all');
-        const spouseTx = my_transactions.filter(tx => tx.account?.role_access !== role && tx.account?.role_access !== 'all');
+        const myTx = my_transactions.filter((tx: any) => tx.account?.role_access === role || tx.account?.role_access === 'all');
+        const spouseTx = my_transactions.filter((tx: any) => tx.account?.role_access !== role && tx.account?.role_access !== 'all');
 
         return json({ 
             my_transactions: myTx,
@@ -98,13 +101,37 @@ export async function GET({ url }) {
 export async function POST({ request }) {
     try {
         const body = await request.json();
-        const { amount, type, category_id, notes, user_id, date, account_id, to_account_id } = body;
+        const { amount, type, category_id, notes, user_id, date, time, account_id, to_account_id } = body;
 
         if (!amount || !type || !category_id || !user_id || !account_id) {
             return json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const created_at = date ? new Date(date) : undefined;
+        let created_at: Date;
+        if (date) {
+            const parts = date.split('-').map(Number);
+            if (parts.length === 3) {
+                const [y, m, d] = parts;
+                const now = new Date();
+                let hours = now.getHours();
+                let mins = now.getMinutes();
+                let secs = now.getSeconds();
+                let ms = now.getMilliseconds();
+                if (time) {
+                    const timeParts = time.split(':').map(Number);
+                    if (timeParts.length >= 2 && !isNaN(timeParts[0]) && !isNaN(timeParts[1])) {
+                        hours = timeParts[0];
+                        mins = timeParts[1];
+                        secs = timeParts[2] || 0;
+                    }
+                }
+                created_at = new Date(y, m - 1, d, hours, mins, secs, ms);
+            } else {
+                created_at = new Date(date);
+            }
+        } else {
+            created_at = new Date();
+        }
 
         if (type === 'transfer') {
             if (!to_account_id) return json({ error: 'Missing destination account for transfer' }, { status: 400 });
@@ -162,12 +189,19 @@ export async function POST({ request }) {
 export async function DELETE({ request }) {
     try {
         const body = await request.json();
-        const { id } = body;
+        const { id, user_id } = body;
 
         if (!id) return json({ error: 'Missing ID' }, { status: 400 });
 
         const tx = await prisma.transaction.findUnique({ where: { id } });
-        if (!tx) return json({ error: 'Transaction not found' }, { status: 404 });
+        if (!tx) return json({ error: 'Transaksi tidak ditemukan' }, { status: 404 });
+
+        // Validation: Only the creator can delete their transaction
+        if (user_id && tx.user_id !== user_id) {
+            return json({ 
+                error: 'Tidak diizinkan: Anda hanya dapat menghapus transaksi yang Anda input sendiri.' 
+            }, { status: 403 });
+        }
 
         if (tx.transfer_id) {
             // Delete both sides of the transfer

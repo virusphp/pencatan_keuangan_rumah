@@ -11,6 +11,11 @@
     
     let isTransparent = $state(false);
     let isLoading = $state(true);
+    let activeTab = $state<'saya' | 'pasangan'>('saya');
+
+    let canViewSpouse = $derived(
+        auth.session?.role === 'suami' || (auth.session?.role === 'istri' && isTransparent)
+    );
 
     const now = new Date();
     let selectedMonth = $state(now.getMonth() + 1);
@@ -29,8 +34,8 @@
             const data = await res.json();
             
             if (data) {
-                my_transactions = data.my_transactions || [];
-                spouse_transactions = data.spouse_transactions || [];
+                my_transactions = (data.my_transactions || []).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                spouse_transactions = (data.spouse_transactions || []).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 totalBalance = data.totalBalance || 0;
                 spouseBalance = data.spouseBalance || 0;
                 accountBalances = data.accountBalances || [];
@@ -51,13 +56,33 @@
         }).format(amount);
     }
 
+    function formatTransactionDate(dateStr: string | Date) {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('id-ID', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    }
+
+    function formatTransactionTime(dateStr: string | Date) {
+        const d = new Date(dateStr);
+        const hours = d.getHours().toString().padStart(2, '0');
+        const mins = d.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${mins}`;
+    }
+
     async function deleteTransaction(id: string) {
         if (!confirm('Hapus transaksi ini? Jika ini transfer, pasangan dari transfer ini juga akan ikut terhapus.')) return;
         try {
             const res = await fetch('/api/transactions', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
+                body: JSON.stringify({ 
+                    id, 
+                    user_id: auth.session?.id 
+                })
             });
             if (res.ok) {
                 await fetchTransactions();
@@ -101,167 +126,331 @@
         </div>
     </div>
 
-    <!-- Balance Card -->
-    <div class="bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-        <!-- Decoration -->
-        <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-        
-        <div class="relative z-10">
-            <div class="flex justify-between items-start mb-2">
-                <p class="text-white/80 text-sm font-medium">Total Saldo (Sepanjang Waktu)</p>
-                {#if auth.session?.role === 'istri' && !isTransparent}
-                    <span class="bg-white/20 px-2 py-1 rounded text-[10px] backdrop-blur-sm">Mode Privat</span>
+    <!-- Tab Menu (Dompet Saya vs Dompet Pasangan) -->
+    {#if canViewSpouse}
+        <div class="flex p-1.5 bg-gray-100 dark:bg-gray-800 rounded-2xl shadow-inner gap-1">
+            <button 
+                type="button"
+                onclick={() => activeTab = 'saya'}
+                class="flex-1 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 {activeTab === 'saya' ? 'bg-white dark:bg-surface-dark shadow-md text-primary dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Dompet Saya
+                {#if my_transactions.length > 0}
+                    <span class="text-[11px] px-1.5 py-0.2 rounded-full {activeTab === 'saya' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}">
+                        {my_transactions.length}
+                    </span>
                 {/if}
-            </div>
+            </button>
+            <button 
+                type="button"
+                onclick={() => activeTab = 'pasangan'}
+                class="flex-1 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 {activeTab === 'pasangan' ? 'bg-white dark:bg-surface-dark shadow-md text-rose-600 dark:text-rose-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Dompet Pasangan
+                {#if spouse_transactions.length > 0}
+                    <span class="text-[11px] px-1.5 py-0.2 rounded-full {activeTab === 'pasangan' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}">
+                        {spouse_transactions.length}
+                    </span>
+                {/if}
+            </button>
+        </div>
+    {/if}
+
+    {#if activeTab === 'saya'}
+        <!-- Dompet Saya Content -->
+        <!-- Balance Card -->
+        <div class="bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+            <!-- Decoration -->
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
             
-            {#if isLoading}
-                <div class="h-10 bg-white/20 animate-pulse rounded w-1/2 my-2"></div>
-            {:else}
-                <h2 class="text-4xl font-bold tracking-tight mb-4">{formatRupiah(totalBalance)}</h2>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-white/80 text-sm font-medium">Total Saldo (Sepanjang Waktu)</p>
+                    {#if auth.session?.role === 'istri' && !isTransparent}
+                        <span class="bg-white/20 px-2 py-1 rounded text-[10px] backdrop-blur-sm">Mode Privat</span>
+                    {/if}
+                </div>
                 
-                <!-- Detail Dompet Link -->
-                <div class="mb-6">
-                    <a href="/dashboard/dompet" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium">
+                {#if isLoading}
+                    <div class="h-10 bg-white/20 animate-pulse rounded w-1/2 my-2"></div>
+                {:else}
+                    <h2 class="text-4xl font-bold tracking-tight mb-4">{formatRupiah(totalBalance)}</h2>
+                    
+                    <!-- Detail Dompet Link -->
+                    <div class="mb-6">
+                        <a href="/dashboard/dompet" class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Lihat Detail Dompet
+                        </a>
+                    </div>
+                {/if}
+                
+                <!-- Quick Actions -->
+                <div class="flex gap-3">
+                    <a href="/dashboard/catat?type=income" class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
                         </svg>
-                        Lihat Detail Dompet
+                        Pemasukan
+                    </a>
+                    <a href="/dashboard/catat?type=expense" class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                        </svg>
+                        Pengeluaran
                     </a>
                 </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div>
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <h3 class="font-bold text-gray-800 dark:text-gray-200">Riwayat Transaksi Saya</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Urut dari yang paling baru diinput</p>
+                </div>
+                <a href="/dashboard/analisis" class="text-sm text-primary dark:text-primary-dark font-medium hover:underline">Analisis</a>
+            </div>
+
+            {#if isLoading}
+                <div class="space-y-3">
+                    {#each Array(3) as _}
+                        <div class="h-20 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-2xl"></div>
+                    {/each}
+                </div>
+            {:else if my_transactions.length === 0}
+                <div class="text-center py-10 bg-white dark:bg-surface-dark rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+                    <p class="text-gray-500 dark:text-gray-400">Belum ada transaksi bulan ini.</p>
+                    <a href="/dashboard/catat" class="text-primary mt-2 inline-block font-medium">Catat sekarang!</a>
+                </div>
+            {:else}
+                <div class="space-y-3">
+                    {#each my_transactions as tx}
+                        <div class="bg-white dark:bg-surface-dark p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-gray-100 dark:border-gray-800 transition hover:shadow-md">
+                            <div class="flex items-start gap-3.5 flex-1 min-w-0">
+                                <!-- Icon -->
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5
+                                    {tx.type === 'transfer' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : tx.amount > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}">
+                                    {#if tx.type === 'transfer'}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                        </svg>
+                                    {:else if tx.amount > 0}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    {:else}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                                        </svg>
+                                    {/if}
+                                </div>
+                                
+                                <!-- Content Details -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
+                                            {tx.category?.name || 'Transaksi'}
+                                        </h4>
+                                        {#if tx.account?.name}
+                                            <span class="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-md border border-gray-200/60 dark:border-gray-700/60">
+                                                {tx.account.name}
+                                            </span>
+                                        {/if}
+                                    </div>
+                                    
+                                    <!-- Keterangan (Notes) -->
+                                    {#if tx.notes && tx.notes.trim() !== ''}
+                                        <div class="mt-1 flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-200 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 px-2.5 py-1 rounded-lg">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                            </svg>
+                                            <p class="font-normal break-words leading-relaxed">
+                                                <span class="font-semibold text-amber-800 dark:text-amber-400">Keterangan:</span> {tx.notes}
+                                            </p>
+                                        </div>
+                                    {/if}
+
+                                    <!-- Timestamp & Jam -->
+                                    <div class="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                                        <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 font-medium">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            {formatTransactionDate(tx.created_at)}
+                                        </span>
+                                        <span class="inline-flex items-center gap-1 font-bold text-[11px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md border border-blue-200/60 dark:border-blue-800/50 shadow-2xs">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Jam {formatTransactionTime(tx.created_at)} WIB
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Amount and Action -->
+                            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-800 shrink-0">
+                                <span class="font-bold text-sm sm:text-base {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
+                                    {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                                </span>
+                                {#if tx.user_id === auth.session?.id}
+                                    <button onclick={() => deleteTransaction(tx.id)} class="text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 px-2.5 py-1 rounded-md transition font-medium flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Hapus
+                                    </button>
+                                {/if}
+                            </div>
+                        </div>
+                    {/each}
+                </div>
             {/if}
-            
-            <!-- Quick Actions -->
-            <div class="flex gap-3">
-                <a href="/dashboard/catat?type=income" class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                    </svg>
-                    Pemasukan
-                </a>
-                <a href="/dashboard/catat?type=expense" class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md transition py-2 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-                    </svg>
-                    Pengeluaran
-                </a>
-            </div>
         </div>
-    </div>
-
-    <!-- Recent Transactions -->
-    <div>
-        <div class="flex justify-between items-end mb-4">
-            <h3 class="font-bold text-gray-800 dark:text-gray-200">Riwayat Bulan Ini</h3>
-            <a href="/dashboard/analisis" class="text-sm text-primary dark:text-primary-dark font-medium hover:underline">Analisis</a>
-        </div>
-
-        {#if isLoading}
-            <div class="space-y-3">
-                {#each Array(3) as _}
-                    <div class="h-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-2xl"></div>
-                {/each}
-            </div>
-        {:else if my_transactions.length === 0}
-            <div class="text-center py-10 bg-white dark:bg-surface-dark rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
-                <p class="text-gray-500 dark:text-gray-400">Belum ada transaksi bulan ini.</p>
-                <a href="/dashboard/catat" class="text-primary mt-2 inline-block font-medium">Catat sekarang!</a>
-            </div>
-        {:else}
-            <div class="space-y-3">
-                {#each my_transactions as tx}
-                    <div class="bg-white dark:bg-surface-dark p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-100 dark:border-gray-800">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center 
-                                {tx.amount > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}">
-                                {#if tx.type === 'transfer'}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                    </svg>
-                                {:else if tx.amount > 0}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                {:else}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                                    </svg>
-                                {/if}
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
-                                <p class="text-[11px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} • {tx.account?.name}</p>
-                            </div>
+    {:else}
+        <!-- Dompet Pasangan Content -->
+        <div class="space-y-6">
+            <!-- Spouse Balance Card -->
+            <div class="bg-gradient-to-br from-rose-500 to-pink-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+                <!-- Decoration -->
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            <p class="text-white/90 text-sm font-medium">Saldo Pasangan (Sepanjang Waktu)</p>
                         </div>
-                        <div class="flex flex-col items-end gap-1">
-                            <span class="font-bold text-sm {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
-                                {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
-                            </span>
-                            <button onclick={() => deleteTransaction(tx.id)} class="text-[10px] text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md transition">
-                                Hapus
-                            </button>
-                        </div>
+                        <span class="bg-white/20 px-2.5 py-1 rounded-full text-[10px] font-medium backdrop-blur-sm">
+                            Mode Transparan
+                        </span>
                     </div>
-                {/each}
+                    
+                    {#if isLoading}
+                        <div class="h-10 bg-white/20 animate-pulse rounded w-1/2 my-2"></div>
+                    {:else}
+                        <h2 class="text-4xl font-bold tracking-tight mb-2">{formatRupiah(spouseBalance)}</h2>
+                        <p class="text-xs text-white/80">Pantau pergerakan saldo & pengeluaran pasangan Anda.</p>
+                    {/if}
+                </div>
             </div>
-        {/if}
-    </div>
 
-    <!-- Spouse Transparent Mode Section -->
-    {#if auth.session?.role === 'suami' || (auth.session?.role === 'istri' && isTransparent)}
-        <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
-            <h3 class="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Mengintip Dompet Pasangan
-            </h3>
-            
-            <div class="bg-gray-100 dark:bg-gray-800 rounded-3xl p-5 mb-4 shadow-inner border border-gray-200 dark:border-gray-700">
-                <p class="text-gray-500 dark:text-gray-400 text-xs font-medium mb-1">Saldo Pasangan (Sepanjang Waktu)</p>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatRupiah(spouseBalance)}</h2>
-            </div>
-            
-            <div class="space-y-3 opacity-80">
-                {#if spouse_transactions.length === 0}
-                    <p class="text-center text-xs text-gray-500 py-4">Tidak ada transaksi bulan ini.</p>
+            <!-- Spouse Transactions -->
+            <div>
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Riwayat Transaksi Pasangan</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Urut dari yang paling baru diinput</p>
+                    </div>
+                </div>
+
+                {#if isLoading}
+                    <div class="space-y-3">
+                        {#each Array(3) as _}
+                            <div class="h-20 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-2xl"></div>
+                        {/each}
+                    </div>
+                {:else if spouse_transactions.length === 0}
+                    <div class="text-center py-10 bg-white dark:bg-surface-dark rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+                        <p class="text-gray-500 dark:text-gray-400">Tidak ada transaksi pasangan di bulan ini.</p>
+                    </div>
+                {:else}
+                    <div class="space-y-3">
+                        {#each spouse_transactions as tx}
+                            <div class="bg-white dark:bg-surface-dark p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-gray-100 dark:border-gray-800 transition hover:shadow-md">
+                                <div class="flex items-start gap-3.5 flex-1 min-w-0">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5
+                                        {tx.type === 'transfer' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : tx.amount > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}">
+                                        {#if tx.type === 'transfer'}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                            </svg>
+                                        {:else if tx.amount > 0}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                            </svg>
+                                        {:else}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                                            </svg>
+                                        {/if}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">{tx.category?.name || 'Transaksi'}</h4>
+                                            {#if tx.account?.name}
+                                                <span class="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+                                                    {tx.account.name}
+                                                </span>
+                                            {/if}
+                                        </div>
+
+                                        <!-- Keterangan (Notes) -->
+                                        {#if tx.notes && tx.notes.trim() !== ''}
+                                            <div class="mt-1 flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-200 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 px-2.5 py-1 rounded-lg">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                </svg>
+                                                <p class="font-normal break-words leading-relaxed">
+                                                    <span class="font-semibold text-amber-800 dark:text-amber-400">Keterangan:</span> {tx.notes}
+                                                </p>
+                                            </div>
+                                        {/if}
+
+                                        <!-- Timestamp & Jam -->
+                                        <div class="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                                            <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 font-medium">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                {formatTransactionDate(tx.created_at)}
+                                            </span>
+                                            <span class="inline-flex items-center gap-1 font-bold text-[11px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md border border-blue-200/60 dark:border-blue-800/50 shadow-2xs">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Jam {formatTransactionTime(tx.created_at)} WIB
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-800 shrink-0">
+                                    <span class="font-bold text-sm sm:text-base {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
+                                        {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
+                                    </span>
+                                    {#if tx.user_id === auth.session?.id}
+                                        <button onclick={() => deleteTransaction(tx.id)} class="text-[10px] text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 px-2.5 py-1 rounded-md transition font-medium flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            Hapus
+                                        </button>
+                                    {:else}
+                                        <span class="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded-md border border-gray-100 dark:border-gray-700/60 font-medium flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                            Diinput {tx.user?.name || 'Pasangan'}
+                                        </span>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
                 {/if}
-                {#each spouse_transactions as tx}
-                    <div class="bg-white/50 dark:bg-surface-dark/50 p-3 rounded-xl flex justify-between items-center border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center 
-                                {tx.amount > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}">
-                                {#if tx.type === 'transfer'}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                    </svg>
-                                {:else if tx.amount > 0}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                {:else}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                                    </svg>
-                                {/if}
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-xs text-gray-900 dark:text-gray-100">{tx.category?.name || tx.notes}</h4>
-                                <p class="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} • {tx.account?.name}</p>
-                            </div>
-                        </div>
-                        <div class="flex flex-col items-end gap-1">
-                            <span class="font-bold text-xs {tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}">
-                                {tx.amount > 0 ? '+' : ''}{formatRupiah(tx.amount)}
-                            </span>
-                            <button onclick={() => deleteTransaction(tx.id)} class="text-[9px] text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md transition">
-                                Hapus
-                            </button>
-                        </div>
-                    </div>
-                {/each}
             </div>
         </div>
     {/if}

@@ -15,7 +15,9 @@
     let amount = $derived(amountStr ? parseFloat(amountStr.replace(/[^0-9]/g, '')) : 0);
     
     let category_id = $state('');
-    let date = $state(new Date().toISOString().split('T')[0]);
+    const now = new Date();
+    let date = $state(now.toISOString().split('T')[0]);
+    let time = $state(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     let notes = $state('');
     let isSubmitting = $state(false);
 
@@ -105,7 +107,8 @@
                     account_id,
                     to_account_id: activeTab === 'transfer' ? to_account_id : undefined,
                     notes,
-                    date
+                    date,
+                    time
                 })
             });
             
@@ -169,14 +172,25 @@
     <form onsubmit={handleSubmit} class="space-y-4">
         <!-- Form Fields -->
         <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tanggal</label>
-                <input 
-                    type="date" 
-                    bind:value={date} 
-                    required
-                    class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-primary focus:border-primary outline-none dark:text-white transition"
-                >
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tanggal</label>
+                    <input 
+                        type="date" 
+                        bind:value={date} 
+                        required
+                        class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-primary focus:border-primary outline-none dark:text-white transition"
+                    >
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam (WIB)</label>
+                    <input 
+                        type="time" 
+                        bind:value={time} 
+                        required
+                        class="w-full px-4 py-3 bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-primary focus:border-primary outline-none dark:text-white transition"
+                    >
+                </div>
             </div>
             
             <div>
