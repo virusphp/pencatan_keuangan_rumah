@@ -12,7 +12,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data
 
   app:
     build: .
@@ -28,6 +28,3 @@ services:
       - db
     # Command ini dijalankan saat container start: jalankan migrasi database lalu jalankan aplikasi
     command: sh -c "npx prisma migrate deploy && node build/index.js"
-
-volumes:
-  pgdata:
