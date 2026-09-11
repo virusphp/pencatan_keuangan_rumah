@@ -1,6 +1,11 @@
 #!/bin/bash
 
 # ==========================================
+# SET TIMEZONE KE WIB (Asia/Jakarta)
+# ==========================================
+export TZ="Asia/Jakarta"
+
+# ==========================================
 # KONFIGURASI BOT & TELEGRAM
 # ==========================================
 BOT_TOKEN="369034438:AAF9sgnOPCeofgidIJG3pgNzMZBjDGZtE-s"

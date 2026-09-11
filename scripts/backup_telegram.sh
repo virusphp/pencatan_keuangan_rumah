@@ -1,6 +1,11 @@
 #!/bin/bash
 
 # ==========================================
+# SET TIMEZONE KE WIB (Asia/Jakarta)
+# ==========================================
+export TZ="Asia/Jakarta"
+
+# ==========================================
 # KONFIGURASI BOT & TELEGRAM
 # ==========================================
 BOT_TOKEN="369034438:AAF9sgnOPCeofgidIJG3pgNzMZBjDGZtE-s"
@@ -85,7 +90,7 @@ CAPTION="📦 DATABASE BACKUP AUTO-FORWARD
 📅 Waktu: ${WAKTU_INDONESIA}
 🔒 Status: Completed via pg_dump
 ----------------------------------------
-🤖 Saham Signal Admin Service"
+🤖 Pencatatan Keuangan Rumah"
 
 # ==========================================
 # KIRIM FILE KE TELEGRAM CHANNEL
