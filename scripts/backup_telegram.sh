@@ -3,8 +3,8 @@
 # ==========================================
 # KONFIGURASI BOT & TELEGRAM
 # ==========================================
-BOT_TOKEN="GANTI_DENGAN_TOKEN_BOT_TELEGRAM_ANDA"
-CHAT_ID="GANTI_DENGAN_CHAT_ID_ATAU_CHANNEL_ID" # Contoh: -1001234567890 (Channel) atau 12345678 (Pribadi)
+BOT_TOKEN="369034438:AAF9sgnOPCeofgidIJG3pgNzMZBjDGZtE-s"
+CHAT_ID="-1004487561728" # Contoh: -1001234567890 (Channel) atau 12345678 (Pribadi)
 
 # ==========================================
 # KONFIGURASI DATABASE
